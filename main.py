@@ -22,6 +22,7 @@ Sanderson created Sanderson's Laws of Magic and popularized the idea of "hard ma
 
     llm = ChatOpenAI(temperature=0, model="gpt-5", verbose=False)
     # llm = ChatOllama(temperature=0, model="gemma3:270m")
+    # llm = ChatOllama(temperature=0, model="gpt-oss:latest")
     chain = summary_prompt_template | llm
     response = chain.invoke(input={"information":information})
     print(response.text)
