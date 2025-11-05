@@ -5,7 +5,8 @@ load_dotenv()
 from langchain_classic import hub
 from langchain_classic.agents import AgentExecutor
 from langchain_classic.agents.react.agent import create_react_agent
-from langchain_core.output_parsers.pydantic import PydanticOutputParser
+# from langchain_core.output_parsers.pydantic import PydanticOutputParser
+# I have commented out the Pydantic Output Parser to use the .with_structured_output method (Easier to use and more reliable)
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
@@ -15,25 +16,31 @@ from prompt import REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS
 from schemas import AgentResponse
 
 tools = [TavilySearch()]
-llm = ChatOpenAI(model="gpt-4")
+llm = ChatOpenAI(model="gpt-4-turbo")
+strutured_llm = llm.with_structured_output(AgentResponse)
 react_prompt = hub.pull("hwchase17/react")
-output_parser = PydanticOutputParser(pydantic_object=AgentResponse)
+# output_parser = PydanticOutputParser(pydantic_object=AgentResponse)
+# I have commented out the Pydantic Output Parser to use the .with_structured_output method (Easier to use and more reliable)
+
 react_prompt_with_format_instructions=PromptTemplate(
     template=REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS,
     input_variables=["input", "agent_scratchpad", "tool_names"]
-).partial(format_instructions=output_parser.get_format_instructions())
-
+#).partial(format_instructions=output_parser.get_format_instructions())
+# Removed the format instruction prompt because we will leverage the AgentResponse schema object we created in schema.py
+).partial(format_instructions="")
 
 agent = create_react_agent(
-    llm=llm,
+    llm=llm,  # notice we did not use the new structured_llm object.  We only leverage that in the last step of the chain for formatting the output
     tools=tools,
     prompt=react_prompt_with_format_instructions,
 )
 
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 extract_output = RunnableLambda(lambda x: x['output'])
-parse_output = RunnableLambda(lambda x: output_parser.parse(x))
-chain = agent_executor| extract_output| parse_output 
+# parse_output = RunnableLambda(lambda x: output_parser.parse(x))
+# Commented out this since formating will be done by the structured_llm object that we will replace in the chain below
+# chain = agent_executor| extract_output| parse_output 
+chain = agent_executor| extract_output| strutured_llm 
 
 
 def main():
