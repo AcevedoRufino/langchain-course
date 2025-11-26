@@ -13,6 +13,9 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_tavily import TavilyCrawl, TavilyExtract, TavilyMap
 from openai import batches
+from langchain_community.document_loaders import SpiderLoader
+
+
 
 from logger import (Colors, log_error, log_header, log_info, log_success,
                     log_warning)
@@ -30,9 +33,22 @@ embeddings = OpenAIEmbeddings(
 
 #chroma = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
 vectorstore = PineconeVectorStore(index_name=os.getenv("INDEX_NAME"), embedding=embeddings)
-tavily_extract = TavilyExtract()
-tavily_map = TavilyMap(max_depth=5, max_breadth=10, max_pages=1000)
-tavily_crawl = TavilyCrawl()
+#tavily_extract = TavilyExtract()
+#tavily_map = TavilyMap(max_depth=5, max_breadth=10, max_pages=1000)
+#tavily_crawl = TavilyCrawl()
+spider_loader = SpiderLoader(
+    #api_key="YOUR_API_KEY",
+    url="https://coppermind.net/wiki/Coppermind:Welcome",
+    params = {"limit":10, 
+              "metadata":True,
+              "return_format": "markdown"},
+    mode="crawl",  # if no API key is provided it looks for SPIDER_API_KEY in env
+)
+
+#spider_data = spider_loader.load()
+#print(spider_data)
+
+
 
 async def index_documents_async(documents: List[Document], batch_size: int = 50):
     """Asynchronously index documents into the vector store in batches."""
@@ -84,23 +100,43 @@ async def main():
     log_header("DOCUMENTATION INGESTION PIPELINE")
 
     log_info(
-        "** TavilyCrawl: Starting crawl from seed URL 'https://python.langchain.com/",
+        "** Crawl: Starting crawl from seed URL 'https://coppermind.net/wiki/Coppermind:Welcome",
         Colors.PURPLE,
     )
 
     #Crawl the documentation site
-    res = tavily_crawl.invoke({
-        "url": "https://python.langchain.com/",
-        "max_depth": 5, #Should start with 1-2 to avoid too many pages and overrun.  Evaluate and increase as needed.
-        "extract_depth": "advanced" #setting to advance Will increase latency but crawl more meta data like tables
+    """res = tavily_crawl.invoke({
+        "url": "https://coppermind.net/wiki/Coppermind:Welcome",
+        "max_depth": 2, #Should start with 1-2 to avoid too many pages and overrun.  Evaluate and increase as needed.
+        "extract_depth": "advanced", #setting to advance Will increase latency but crawl more meta data like tables
+        "max_breadth": 2650,
+        "limit": 5000,
         #"instructions": "content on ai agents"
         # The instructions field can be used to guide the crawler on what specific content to look for. and focus the results
-    })
+    })"""
+
+    res = spider_loader.load()
+
 
     #all_docs = res["results"]
-    all_docs = [Document(page_content=result['raw_content'], metadata={"source": result['url']}) for result in res['results']]
+    #all_docs = [Document(page_content=result['raw_content'], metadata={"source": result['url']}) for result in res['results']]
+    
+    #all_docs = [Document(page_content=result['page_content'], metadata={"source": result['original_url']}) for result in res]
+    #print(len(all_docs))
+    all_docs = [Document(page_content=result.page_content, metadata={"source": result.metadata['original_url']}) for result in res]
+    print(len(all_docs))
+    
+    """
+    for result in res:
+        print(result.page_content[:20])
+        if "original_url" in result.metadata:
+            print(f"Source URL: {result.metadata['original_url']}")
+        else:
+            print("Source URL not found in metadata for this document.")
+        
+    """
     log_success(
-        f"TavilyCrawl: Successfully crawled {len(all_docs)} URLs from site."
+        f"Crawl: Successfully crawled {len(all_docs)} URLs from site."
     )
 
     log_header("DOCUMENT CHUNKING PHASE")
