@@ -35,7 +35,7 @@ def create_sources_string(source_urls: set[str]) -> str:
     return sources_string
 
 def main():
-    st.header("Langchain Documentation Helper")
+    st.header("Hoid Spren Bot")
     render_user_sidebar()
     prompt = st.text_input("Prompt", placeholder="What can I help with?")
 

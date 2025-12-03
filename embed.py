@@ -1,6 +1,7 @@
 import asyncio
 import os
 import ssl
+import json
 from typing import Any, Dict, List
 
 import certifi
@@ -49,7 +50,8 @@ spider_loader = SpiderLoader(
 
 
 
-async def index_documents_async(documents: List[Document], batch_size: int = 50):
+def index_documents_async(documents: List[Document], batch_size: int = 50):
+#async def index_documents_async(documents: List[Document], batch_size: int = 50):
     """Asynchronously index documents into the vector store in batches."""
     log_header("VECTOR STORAGE PHASE")
     log_info(
@@ -64,9 +66,10 @@ async def index_documents_async(documents: List[Document], batch_size: int = 50)
         f"** Vector Store Indexing: Split into {len(batches)} batches of {batch_size} documents each."
     )
 
-    async def add_batch(batch: List[Document], batch_num: int):
+    #async def add_batch(batch: List[Document], batch_num: int):
+    def add_batch(batch: List[Document], batch_num: int):
         try:
-            await vectorstore.aadd_documents(batch)
+            vectorstore.add_documents(batch)
             log_success(
                 f"Vector Store Indexing: Successfully added batch {batch_num} / {len(batches)}  ({len(batch)}documents."
             )
@@ -79,7 +82,8 @@ async def index_documents_async(documents: List[Document], batch_size: int = 50)
 
 
     tasks = [add_batch(batch, i + 1) for i, batch in enumerate(batches)]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    #results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = asyncio.gather(*tasks, return_exceptions=True)
 
     successful = sum(1 for result in results if result is True)
 
@@ -93,16 +97,18 @@ async def index_documents_async(documents: List[Document], batch_size: int = 50)
         )
 
 
-async def main():
+#async def main():
+def main():
     """Main async function to orchestrate the entire processing pipeline."""
-    print("Starting the data ingestion pipeline...")
-    log_header("DOCUMENTATION INGESTION PIPELINE")
+    print("Starting the data conversion pipeline...")
+    log_header("DOCUMENTATION UPLOAD PIPELINE")
 
+    '''
     log_info(
         "** Crawl: Starting crawl from seed URL 'https://coppermind.net/wiki/Coppermind:Welcome",
         Colors.PURPLE,
     )
-
+    '''
     #Crawl the documentation site
     """res = tavily_crawl.invoke({
         "url": "https://coppermind.net/wiki/Coppermind:Welcome",
@@ -114,7 +120,7 @@ async def main():
         # The instructions field can be used to guide the crawler on what specific content to look for. and focus the results
     })"""
 
-    res = spider_loader.load()
+    #res = spider_loader.load()
 
 
     #all_docs = res["results"]
@@ -122,7 +128,7 @@ async def main():
     
     #all_docs = [Document(page_content=result['page_content'], metadata={"source": result['original_url']}) for result in res]
     #print(len(all_docs))
-    all_docs = [Document(page_content=result.page_content, metadata={"source": result.metadata['original_url']}) for result in res]
+    #all_docs = [Document(page_content=result.page_content, metadata={"source": result.metadata['original_url']}) for result in res]
     #print(len(all_docs))
     
     """
@@ -133,14 +139,14 @@ async def main():
         else:
             print("Source URL not found in metadata for this document.")
         
-    """
+    
     log_success(
         f"Crawl: Successfully crawled {len(all_docs)} URLs from site."
     )
 
     log_header("DOCUMENT CHUNKING PHASE")
     log_info(
-        f"**  Text Splitter:  Processing {len(all_docs)} documents with 4000 chunk size and 200 overlap",
+        f"**  Text Splitter:  Processing {len(all_docs)} documents with 2000 chunk size and 200 overlap",
             Colors.YELLOW,
     )
 
@@ -150,17 +156,39 @@ async def main():
         f"Text Splitter: Successfully split documents into {len(splitted_docs)} chunks."
     )
 
-    #Process documents into vector store asynchronously
-    await index_documents_async(splitted_docs, batch_size=500)
 
-    log_header("INGESTION PIPELINE COMPLETE")
-    log_success("Data ingestion pipeline completed successfully!")
+    # Convert Document objects to a serializable format (e.g., list of dictionaries)
+    serializable_docs = []
+    for doc in splitted_docs:
+        serializable_docs.append({"page_content": doc.page_content, "metadata": doc.metadata})
+
+    # Save to a JSON file
+    with open("saved_documents.json", "w") as f:
+        json.dump(serializable_docs, f, indent=4)
+
+    """
+    # Load documents back from the JSON file
+
+    with open("saved_documents.json", "r") as f:
+        loaded_data = json.load(f)
+
+    reloaded_documents = []
+    for item in loaded_data:
+        reloaded_documents.append(Document(page_content=item["page_content"], metadata=item["metadata"]))
+
+    print(f"Reloaded {len(reloaded_documents)} documents from saved_documents.json")
+    #Process documents into vector store asynchronously
+    #await index_documents_async(reloaded_documents, batch_size=500)
+    index_documents_async(reloaded_documents, batch_size=500)
+    log_header("DATA SAVED IN VECTOR STORE")
+    log_success("Data saved to storage for RAG Search")
     log_info("Summary:", Colors.BOLD)
     #log_info(f"- URLs mapped: {len(site_map['results'])}")
-    log_info(f"- Documents Extracted: {len(all_docs)}")
-    log_info(f"- Document Chunks Created: {len(splitted_docs)}")
+    #log_info(f"- Documents Extracted: {len(all_docs)}")
+    #log_info(f"- Document Chunks Created: {len(splitted_docs)}")
 
 if __name__ == "__main__":
-    asyncio.run(main())    
+    main()    
+#    asyncio.run(main())    
 
 

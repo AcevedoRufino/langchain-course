@@ -1,6 +1,7 @@
 import asyncio
 import os
 import ssl
+import json
 from typing import Any, Dict, List
 
 import certifi
@@ -150,11 +151,22 @@ async def main():
         f"Text Splitter: Successfully split documents into {len(splitted_docs)} chunks."
     )
 
-    #Process documents into vector store asynchronously
-    await index_documents_async(splitted_docs, batch_size=500)
 
-    log_header("INGESTION PIPELINE COMPLETE")
-    log_success("Data ingestion pipeline completed successfully!")
+    # Convert Document objects to a serializable format (e.g., list of dictionaries)
+    serializable_docs = []
+    for doc in splitted_docs:
+        serializable_docs.append({"page_content": doc.page_content, "metadata": doc.metadata})
+
+    # Save to a JSON file
+    with open("saved_documents.json", "w") as f:
+        json.dump(serializable_docs, f, indent=4)
+
+
+    #Process documents into vector store asynchronously
+    #await index_documents_async(splitted_docs, batch_size=500)
+
+    log_header("CRAWL DATA SAVED")
+    log_success("Data saved to storage for later processing!")
     log_info("Summary:", Colors.BOLD)
     #log_info(f"- URLs mapped: {len(site_map['results'])}")
     log_info(f"- Documents Extracted: {len(all_docs)}")
