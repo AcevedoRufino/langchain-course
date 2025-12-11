@@ -39,7 +39,7 @@ vectorstore = PineconeVectorStore(index_name=os.getenv("INDEX_NAME"), embedding=
 #tavily_crawl = TavilyCrawl()
 spider_loader = SpiderLoader(
     #api_key="YOUR_API_KEY",
-    url="https://coppermind.net/wiki/Coppermind:Welcome",
+    url="https://stormlightarchive.fandom.com/wiki/Cosmere",
     params = {"metadata":True,
               "return_format": "markdown"},
     mode="crawl",  # if no API key is provided it looks for SPIDER_API_KEY in env
@@ -100,7 +100,7 @@ async def main():
     log_header("DOCUMENTATION INGESTION PIPELINE")
 
     log_info(
-        "** Crawl: Starting crawl from seed URL 'https://coppermind.net/wiki/Coppermind:Welcome",
+        "** Crawl: Starting crawl from seed URL 'https://stormlightarchive.fandom.com/wiki/Cosmere",
         Colors.PURPLE,
     )
 
@@ -123,9 +123,23 @@ async def main():
     
     #all_docs = [Document(page_content=result['page_content'], metadata={"source": result['original_url']}) for result in res]
     #print(len(all_docs))
+    log_info(
+        "** Saving: Writing original crawled documents to saved_OG_docs.json",
+        Colors.PURPLE,
+    )
     all_docs = [Document(page_content=result.page_content, metadata={"source": result.metadata['original_url']}) for result in res]
     #print(len(all_docs))
-    
+
+    # Convert Document objects to a serializable format (e.g., list of dictionaries)
+    serializable_docs = []
+    for doc in all_docs:
+        serializable_docs.append({"page_content": doc.page_content, "metadata": doc.metadata})
+
+    # Save to a JSON file
+    with open("saved_OG_STORM_docs.json", "w") as f:
+        json.dump(serializable_docs, f, indent=4)
+
+
     """
     for result in res:
         print(result.page_content[:20])
@@ -145,7 +159,7 @@ async def main():
             Colors.YELLOW,
     )
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
     splitted_docs = text_splitter.split_documents(all_docs)
     log_success(
         f"Text Splitter: Successfully split documents into {len(splitted_docs)} chunks."
@@ -158,12 +172,12 @@ async def main():
         serializable_docs.append({"page_content": doc.page_content, "metadata": doc.metadata})
 
     # Save to a JSON file
-    with open("saved_documents.json", "w") as f:
+    with open("saved_CHUNKED_STORM_docs.json", "w") as f:
         json.dump(serializable_docs, f, indent=4)
 
 
     #Process documents into vector store asynchronously
-    #await index_documents_async(splitted_docs, batch_size=500)
+     #await index_documents_async(splitted_docs, batch_size=500)
 
     log_header("CRAWL DATA SAVED")
     log_success("Data saved to storage for later processing!")

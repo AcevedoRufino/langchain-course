@@ -1,9 +1,11 @@
 
+import os
 from dotenv import load_dotenv
 from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
 from langchain_classic.chains.retrieval import create_retrieval_chain
 from langchain_pinecone import PineconeVectorStore
 from typing import List, Dict, Any
+from langchain_astradb import AstraDBVectorStore
 
 load_dotenv()
 
@@ -19,7 +21,13 @@ def run_llm(query: str, chat_history: List[Dict[str, Any]] = []):
     embeddings = OpenAIEmbeddings(
         model="text-embedding-3-small",
     )
-    docsearch = PineconeVectorStore(embedding=embeddings)
+    #docsearch = PineconeVectorStore(embedding=embeddings)
+    docsearch = AstraDBVectorStore(
+        token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
+        api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT"),
+        embedding=embeddings,
+        collection_name="cosmere_doc_index",
+    )
     chat = ChatOpenAI(verbose= True, temperature=0)
 
     retrieval_qa_chat_prompt = hub.pull("langchain-ai/retrieval-qa-chat")

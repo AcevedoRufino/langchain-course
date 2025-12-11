@@ -15,6 +15,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_tavily import TavilyCrawl, TavilyExtract, TavilyMap
 from openai import batches
 from langchain_community.document_loaders import SpiderLoader
+from langchain_astradb import AstraDBVectorStore
 
 
 
@@ -29,14 +30,22 @@ os.environ["SSL_CERT_FILE"] = certifi.where()
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 
 embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-small", chunk_size=50, show_progress_bar=True, retry_min_seconds=10
+    model="text-embedding-3-small", chunk_size=50, show_progress_bar=False, retry_min_seconds=10
 )
 
 #chroma = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
-vectorstore = PineconeVectorStore(index_name=os.getenv("INDEX_NAME"), embedding=embeddings)
+#vectorstore = PineconeVectorStore(index_name=os.getenv("INDEX_NAME"), embedding=embeddings)
+vectorstore = AstraDBVectorStore(
+    token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
+    api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT"),
+    embedding=embeddings,
+    collection_name="cosmere_doc_index",
+)
+print("AstraDB Vector Store initialized.")
 #tavily_extract = TavilyExtract()
 #tavily_map = TavilyMap(max_depth=5, max_breadth=10, max_pages=1000)
 #tavily_crawl = TavilyCrawl()
+'''
 spider_loader = SpiderLoader(
     #api_key="YOUR_API_KEY",
     url="https://coppermind.net/wiki/Coppermind:Welcome",
@@ -44,7 +53,7 @@ spider_loader = SpiderLoader(
               "return_format": "markdown"},
     mode="crawl",  # if no API key is provided it looks for SPIDER_API_KEY in env
 )
-
+'''
 #spider_data = spider_loader.load()
 #print(spider_data)
 
@@ -69,9 +78,11 @@ def index_documents_async(documents: List[Document], batch_size: int = 50):
     #async def add_batch(batch: List[Document], batch_num: int):
     def add_batch(batch: List[Document], batch_num: int):
         try:
-            vectorstore.add_documents(batch)
+            #vectorstore.add_documents(batch)
+            if batch_num in [7,15,36,60,72,91,111,124,153,179,213,243]:
+                vectorstore.add_documents(batch)
             log_success(
-                f"Vector Store Indexing: Successfully added batch {batch_num} / {len(batches)}  ({len(batch)}documents."
+                f"Vector Store Indexing: Successfully added batch {batch_num} / {len(batches)}  ({len(batch)}documents.)"
             )
         except Exception as e:
             log_error(
@@ -169,14 +180,14 @@ def main():
     """
     # Load documents back from the JSON file
 
-    with open("saved_documents.json", "r") as f:
+    with open("saved_CHUNKED_docs.json", "r") as f:
         loaded_data = json.load(f)
 
     reloaded_documents = []
     for item in loaded_data:
         reloaded_documents.append(Document(page_content=item["page_content"], metadata=item["metadata"]))
 
-    print(f"Reloaded {len(reloaded_documents)} documents from saved_documents.json")
+    print(f"Reloaded {len(reloaded_documents)} documents from saved documents")
     #Process documents into vector store asynchronously
     #await index_documents_async(reloaded_documents, batch_size=500)
     index_documents_async(reloaded_documents, batch_size=500)
